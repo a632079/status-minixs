@@ -94,7 +94,7 @@ function autoRestartSave() {
     });
 }
 const job = new cron_1.CronJob('*/10 * * * * *', () => {
-    saveStatus();
+    autoRestartSave();
 }, () => {
     job.start();
 }, true, 'Asia/Shanghai');
