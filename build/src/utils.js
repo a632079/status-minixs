@@ -20,6 +20,7 @@ function applyMinxin(children) {
             children: [],
             status: {
                 load: [0, 0, 0],
+                memory: 0,
                 hitokoto: {
                     total: 0,
                     categroy: []
@@ -80,6 +81,8 @@ function applyMinxin(children) {
             loadBuffer[0] += child.server_status.load[0];
             loadBuffer[1] += child.server_status.load[1];
             loadBuffer[2] += child.server_status.load[2];
+            // 汇总总使用内存
+            result.status.memory += child.server_status.memory.usage;
             // 一言总数统计汇总
             result.status.hitokoto.total = result.status.hitokoto.total < child.server_status.hitokto.total ? child.server_status.hitokto.total : result.status.hitokoto.total;
             result.status.hitokoto.categroy = result.status.hitokoto.categroy.length < child.server_status.hitokto.categroy.length ? child.server_status.hitokto.categroy : result.status.hitokoto.categroy;

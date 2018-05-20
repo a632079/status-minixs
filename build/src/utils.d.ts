@@ -59,6 +59,7 @@ export interface exportData {
     children: Array<string>;
     status: {
         load: Array<number>;
+        memory: number;
         hitokoto: hitokotoStatus;
         childStatus: Array<childServerStatus>;
     };
