@@ -1,7 +1,7 @@
 {
-  "name": "status-mixin",
-  "version": "1.0.0",
-  "description": "Mixin Status Count.",
+  "name": "status-mixins",
+  "version": "1.0.1",
+  "description": "Status Count Mixins.",
   "main": "/build/core.js",
   "repository": "https://github.com/a632079/status-minix",
   "author": "a632079 <a632079@qq.com>",
