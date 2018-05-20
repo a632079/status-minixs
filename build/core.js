@@ -118,12 +118,12 @@ router
 }));
 // 注册中间件
 app
+    .use(cors_1.default())
     .use(router.routes())
     .use(router.allowedMethods())
     .use(koa_bodyparser_1.default())
     .use(koa_json_1.default())
-    .use(koa_json_error_1.default())
-    .use(cors_1.default());
+    .use(koa_json_error_1.default());
 const port = nconf_1.default.get('port') || 6578;
 app.listen(port);
 winston_1.default.info('Server is started. Listening on Port: ' + port);

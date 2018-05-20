@@ -119,13 +119,12 @@ router
     
 // 注册中间件
 app
+	.use(koa_cors())
     .use(router.routes())
     .use(router.allowedMethods())
     .use(koa_bodypaser())
     .use(koa_json())
     .use(koa_json_error())
-	.use(koa_cors())
-
 const port = nconf.get('port') || 6578
 app.listen(port)
 winston.info('Server is started. Listening on Port: ' + port)
