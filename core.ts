@@ -107,6 +107,11 @@ const router = new Router()
 router
     .get('/', async ctx => {
         const file = JSON.parse(fs.readFileSync('./data/status.json').toString())
+        const now = Date.now()
+        Object.assign(file, {
+            ts: now,
+            now: new Date(now).toString()
+        })
         ctx.body = file
     })
 
@@ -119,4 +124,6 @@ app
     .use(koa_json())
     .use(koa_json_error())
 
-app.listen(nconf.get('port') || 6578)
+const port = nconf.get('port') || 6578
+app.listen(port)
+winston.info('Server is started. Listening on Port: ' + port)

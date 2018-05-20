@@ -108,6 +108,11 @@ const router = new koa_router_1.default();
 router
     .get('/', (ctx) => __awaiter(this, void 0, void 0, function* () {
     const file = JSON.parse(fs_1.default.readFileSync('./data/status.json').toString());
+    const now = Date.now();
+    Object.assign(file, {
+        ts: now,
+        now: new Date(now).toString()
+    });
     ctx.body = file;
 }));
 // 注册中间件
@@ -117,5 +122,7 @@ app
     .use(koa_bodyparser_1.default())
     .use(koa_json_1.default())
     .use(koa_json_error_1.default());
-app.listen(nconf_1.default.get('port') || 6578);
+const port = nconf_1.default.get('port') || 6578;
+app.listen(port);
+winston_1.default.info('Server is started. Listening on Port: ' + port);
 //# sourceMappingURL=core.js.map
