@@ -99,6 +99,7 @@ import Router from 'koa-router'
 import koa_json from 'koa-json'
 import koa_bodypaser from 'koa-bodyparser'
 import koa_json_error from 'koa-json-error'
+import koa_cors from '@koa/cors'
 import { auto } from 'async';
 
 const app = new Koa()
@@ -123,6 +124,7 @@ app
     .use(koa_bodypaser())
     .use(koa_json())
     .use(koa_json_error())
+	.use(koa_cors())
 
 const port = nconf.get('port') || 6578
 app.listen(port)

@@ -103,6 +103,7 @@ const koa_router_1 = __importDefault(require("koa-router"));
 const koa_json_1 = __importDefault(require("koa-json"));
 const koa_bodyparser_1 = __importDefault(require("koa-bodyparser"));
 const koa_json_error_1 = __importDefault(require("koa-json-error"));
+const cors_1 = __importDefault(require("@koa/cors"));
 const app = new koa_1.default();
 const router = new koa_router_1.default();
 router
@@ -121,7 +122,8 @@ app
     .use(router.allowedMethods())
     .use(koa_bodyparser_1.default())
     .use(koa_json_1.default())
-    .use(koa_json_error_1.default());
+    .use(koa_json_error_1.default())
+    .use(cors_1.default());
 const port = nconf_1.default.get('port') || 6578;
 app.listen(port);
 winston_1.default.info('Server is started. Listening on Port: ' + port);
