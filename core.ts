@@ -85,7 +85,7 @@ function autoRestartSave () {
 const job = new CronJob(
     '*/10 * * * * *',
     () => {
-        saveStatus()
+        autoRestartSave()
     },
     () => {
         job.start()
