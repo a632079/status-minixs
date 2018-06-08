@@ -84,7 +84,7 @@ let childList = {
     lastUpdate: 0,
     list: []
 }
-let downServerList: downServerList = JSON.parse(fs.readFileSync('./data/status.json').toString()) || {
+let downServerList: downServerList = fs.existsSync('./data/status.json') ? JSON.parse(fs.readFileSync('./data/status.json').toString()) : {
     ids: [],
     data: [] 
 }

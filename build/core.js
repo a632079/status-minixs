@@ -97,7 +97,7 @@ let childList = {
     lastUpdate: 0,
     list: []
 };
-let downServerList = JSON.parse(fs_1.default.readFileSync('./data/status.json').toString()) || {
+let downServerList = fs_1.default.existsSync('./data/status.json') ? JSON.parse(fs_1.default.readFileSync('./data/status.json').toString()) : {
     ids: [],
     data: []
 };
