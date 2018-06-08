@@ -1,12 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -30,105 +22,100 @@ const crypto_1 = __importDefault(require("./src/crypto"));
 // CronJob
 const cron_1 = require("cron");
 // 获取子节点列表
-function fetchServerList() {
-    return __awaiter(this, void 0, void 0, function* () {
-        winston_1.default.info('开始获取节点列表...');
-        const tagetUri = nconf_1.default.get('target_uri');
-        const decryptKey = nconf_1.default.get('decrypt_key');
-        const decrypt_iv = nconf_1.default.get('decrypt_iv');
-        winston_1.default.verbose(tagetUri);
-        winston_1.default.verbose(decryptKey);
-        // 请求接口， 获取列表
-        const responseBody = yield net_1.default.request(tagetUri + '?ts=' + Date.now(), 'GET');
-        // console.log(responseBody)
-        const data = responseBody.data.toString('utf8');
-        winston_1.default.verbose(data);
-        const list = JSON.parse(crypto_1.default.aesDecrypt(data, decryptKey, decrypt_iv));
-        winston_1.default.verbose(list);
-        return list;
-    });
+async function fetchServerList() {
+    winston_1.default.info('开始获取节点列表...');
+    const tagetUri = nconf_1.default.get('target_uri');
+    const decryptKey = nconf_1.default.get('decrypt_key');
+    const decrypt_iv = nconf_1.default.get('decrypt_iv');
+    winston_1.default.verbose(tagetUri);
+    winston_1.default.verbose(decryptKey);
+    // 请求接口， 获取列表
+    const responseBody = await net_1.default.request(tagetUri + '?ts=' + Date.now(), 'GET');
+    // console.log(responseBody)
+    const data = responseBody.data.toString('utf8');
+    winston_1.default.verbose(data);
+    const list = JSON.parse(crypto_1.default.aesDecrypt(data, decryptKey, decrypt_iv));
+    winston_1.default.verbose(list);
+    return list;
 }
 // 获取数据
-function fetch(list) {
-    return __awaiter(this, void 0, void 0, function* () {
-        function fetchChild(input) {
-            return __awaiter(this, void 0, void 0, function* () {
-                try {
-                    const responseBody = yield net_1.default.getJSON(input.url + '/status');
-                    if (responseBody) {
-                        const errorMsg = {
-                            isError: true,
-                            id: input.id,
-                            code: responseBody.status,
-                            msg: responseBody.statusText,
-                            stack: new Error().stack || '',
-                            ts: Date.now()
-                        };
-                        return errorMsg;
-                    }
-                    else {
-                        return responseBody;
-                    }
-                }
-                catch (err) {
-                    // 网络错误 或者其他错误
-                    const errorMsg = {
-                        isError: true,
-                        id: input.id,
-                        code: -1,
-                        msg: err.message,
-                        stack: err.stack,
-                        ts: Date.now()
-                    };
-                    return errorMsg;
-                }
-            });
+async function fetch(list) {
+    async function fetchChild(input) {
+        console.log(input);
+        try {
+            const responseBody = await net_1.default.getJSON(input.url + '/status');
+            if (responseBody.status) {
+                const errorMsg = {
+                    isError: true,
+                    id: input.id,
+                    code: responseBody.status,
+                    msg: responseBody.statusText,
+                    stack: new Error().stack || '',
+                    ts: Date.now()
+                };
+                return errorMsg;
+            }
+            else {
+                return responseBody;
+            }
         }
-        const events = [];
-        for (let value of list) {
-            // 进行纯异步请求
-            events.push(fetchChild(value));
+        catch (err) {
+            // 网络错误 或者其他错误
+            const errorMsg = {
+                isError: true,
+                id: input.id,
+                code: -1,
+                msg: err.message,
+                stack: err.stack,
+                ts: Date.now()
+            };
+            return errorMsg;
         }
-        return Promise.all(events); // 并发一波请求
-    });
+    }
+    const events = [];
+    for (let value of list) {
+        // 进行纯异步请求
+        events.push(fetchChild(value));
+    }
+    return Promise.all(events); // 并发一波请求
 }
 const utils_1 = require("./src/utils");
 let childList = {
     lastUpdate: 0,
     list: []
 };
-let downServerList = fs_1.default.existsSync('./data/status.json') ? JSON.parse(fs_1.default.readFileSync('./data/status.json').toString()) : {
+let downServerList = fs_1.default.existsSync('./data/down.json') ? JSON.parse(fs_1.default.readFileSync('./data/down.json').toString()) : {
     ids: [],
     data: []
 };
-function saveStatus() {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (!childList.lastUpdate) {
-            childList.list = yield fetchServerList();
+async function saveStatus() {
+    if (!childList.lastUpdate) {
+        childList.list = await fetchServerList();
+        childList.lastUpdate = Date.now();
+    }
+    else if ((Date.now() - childList.lastUpdate) > 60 * 60 * 2) {
+        fetchServerList()
+            .then(list => {
+            childList.list = list;
             childList.lastUpdate = Date.now();
+        });
+    }
+    const list = childList.list;
+    winston_1.default.info('开始获取子节点数据...');
+    const fetchResult = await fetch(list);
+    const children = [];
+    const downServer = [];
+    for (let child of fetchResult) {
+        if (child.isError) {
+            downServer.push(child);
         }
-        else if ((Date.now() - childList.lastUpdate) > 60 * 60 * 2) {
-            fetchServerList()
-                .then(list => {
-                childList.list = list;
-                childList.lastUpdate = Date.now();
-            });
+        else {
+            children.push(child);
         }
-        const list = childList.list;
-        winston_1.default.info('开始获取子节点数据...');
-        const fetchResult = yield fetch(list);
-        const children = [];
-        const downServer = [];
-        for (let child of fetchResult) {
-            if (child) {
-                downServer.push(child);
-            }
-            else {
-                children.push(child);
-            }
-        }
-        // 迭代添加宕机时间
-        let toRemoveIds = [];
+    }
+    // 迭代添加宕机时间
+    let toRemoveIds = [];
+    if (downServer.length > 0) {
         for (let child of downServer) {
             toRemoveIds.push(child.id);
             // 检测是否在目前的数据已经存在于宕机数组
@@ -151,7 +138,9 @@ function saveStatus() {
                 });
             }
         }
-        // 移除已经失效的宕机数据
+    }
+    // 移除已经失效的宕机数据
+    if (downServerList.data.length > 0) {
         toRemoveIds = lodash_1.default.pullAll(lodash_1.default.pullAll(downServerList.ids, toRemoveIds));
         let toRemoveData = [];
         for (let child of downServerList.data) {
@@ -163,13 +152,14 @@ function saveStatus() {
         }
         lodash_1.default.pullAll(downServerList.ids, toRemoveIds);
         lodash_1.default.pullAll(downServerList.data, toRemoveData);
-        winston_1.default.info('执行数据合并...');
-        const data = yield utils_1.applyMinxin(children, downServerList);
-        fs_1.default.existsSync(path_1.default.join('./data')) || fs_1.default.mkdirSync(path_1.default.join('./data'));
-        winston_1.default.info('写入状态数据...');
-        fs_1.default.writeFileSync(path_1.default.join('./data/status.json'), JSON.stringify(data));
-        fs_1.default.writeFileSync(path_1.default.join('./data/down.json'), JSON.stringify(downServerList));
-    });
+    }
+    winston_1.default.info('执行数据合并...');
+    console.log(children);
+    const data = await utils_1.applyMinxin(children, downServerList);
+    fs_1.default.existsSync(path_1.default.join('./data')) || fs_1.default.mkdirSync(path_1.default.join('./data'));
+    winston_1.default.info('写入状态数据...');
+    fs_1.default.writeFileSync(path_1.default.join('./data/status.json'), JSON.stringify(data));
+    fs_1.default.writeFileSync(path_1.default.join('./data/down.json'), JSON.stringify(downServerList));
 }
 function autoRestartSave() {
     saveStatus()
@@ -193,7 +183,7 @@ const cors_1 = __importDefault(require("@koa/cors"));
 const app = new koa_1.default();
 const router = new koa_router_1.default();
 router
-    .get('/', (ctx) => __awaiter(this, void 0, void 0, function* () {
+    .get('/', async (ctx) => {
     const file = JSON.parse(fs_1.default.readFileSync('./data/status.json').toString());
     const now = Date.now();
     Object.assign(file, {
@@ -201,7 +191,7 @@ router
         now: new Date(now).toString()
     });
     ctx.body = file;
-}));
+});
 // 注册中间件
 app
     .use(cors_1.default())

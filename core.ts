@@ -22,7 +22,7 @@ import crypto from './src/crypto'
 // CronJob
 import { CronJob } from 'cron'
 // 获取子节点列表
-async function fetchServerList () {
+async function fetchServerList() {
     winston.info('开始获取节点列表...')
     const tagetUri = nconf.get('target_uri')
     const decryptKey = nconf.get('decrypt_key')
@@ -42,9 +42,10 @@ async function fetchServerList () {
 // 获取数据
 async function fetch(list: Array<any>): Promise<Array<statusBody | networkError>> {
     async function fetchChild(input: any) {
+        console.log(input)
         try {
             const responseBody = await net.getJSON(input.url + '/status')
-            if (<AxiosResponse>responseBody) {
+            if ((<AxiosResponse>responseBody).status) {
                 const errorMsg: networkError = {
                     isError: true,
                     id: input.id,
@@ -84,9 +85,9 @@ let childList = {
     lastUpdate: 0,
     list: []
 }
-let downServerList: downServerList = fs.existsSync('./data/status.json') ? JSON.parse(fs.readFileSync('./data/status.json').toString()) : {
+let downServerList: downServerList = fs.existsSync('./data/down.json') ? JSON.parse(fs.readFileSync('./data/down.json').toString()) : {
     ids: [],
-    data: [] 
+    data: []
 }
 
 async function saveStatus() {
@@ -106,50 +107,55 @@ async function saveStatus() {
     const children: Array<statusBody> = []
     const downServer: Array<networkError> = []
     for (let child of fetchResult) {
-        if (<networkError>child) {
+        if ((<networkError>child).isError) {
             downServer.push(<networkError>child)
         } else {
-            children.push(<statusBody>child)
+            children.push((child as statusBody))
         }
     }
     // 迭代添加宕机时间
     let toRemoveIds = []
-    for(let child of downServer) {
-        toRemoveIds.push(child.id)
-        // 检测是否在目前的数据已经存在于宕机数组
-        if (_.indexOf(downServerList.ids, child.id)) {
-            // 已经存在于宕机数组
-            // 更新一下里面的部分信息
-            for (let solo of downServerList.data) {
-                if (solo.id === child.id) {
-                    solo.statusMsg = child
+    if (downServer.length > 0) {
+        for (let child of downServer) {
+            toRemoveIds.push(child.id)
+            // 检测是否在目前的数据已经存在于宕机数组
+            if (_.indexOf(downServerList.ids, child.id)) {
+                // 已经存在于宕机数组
+                // 更新一下里面的部分信息
+                for (let solo of downServerList.data) {
+                    if (solo.id === child.id) {
+                        solo.statusMsg = child
+                    }
                 }
+            } else {
+                // 并不存在， 我们添加进去
+                downServerList.ids.push(child.id)
+                downServerList.data.push({
+                    id: child.id,
+                    start: Date.now(),
+                    statusMsg: child
+                })
             }
-        } else {
-            // 并不存在， 我们添加进去
-            downServerList.ids.push(child.id)
-            downServerList.data.push({
-                id: child.id,
-                start: Date.now(),
-                statusMsg: child
-            })
         }
     }
 
     // 移除已经失效的宕机数据
-    toRemoveIds = _.pullAll(_.pullAll(downServerList.ids, toRemoveIds))
-    let toRemoveData = []
-    for (let child of downServerList.data) {
-        for (let id in toRemoveIds) {
-            if (id === child.id) {
-                toRemoveData.push(child)
+    if (downServerList.data.length > 0) {
+        toRemoveIds = _.pullAll(_.pullAll(downServerList.ids, toRemoveIds))
+        let toRemoveData = []
+        for (let child of downServerList.data) {
+            for (let id in toRemoveIds) {
+                if (id === child.id) {
+                    toRemoveData.push(child)
+                }
             }
         }
+        _.pullAll(downServerList.ids, toRemoveIds)
+        _.pullAll(downServerList.data, toRemoveData)
     }
-    _.pullAll(downServerList.ids, toRemoveIds)
-    _.pullAll(downServerList.data, toRemoveData)
 
     winston.info('执行数据合并...')
+    console.log(children)
     const data = await applyMinxin(children, downServerList)
     fs.existsSync(path.join('./data')) || fs.mkdirSync(path.join('./data'))
     winston.info('写入状态数据...')
@@ -157,7 +163,7 @@ async function saveStatus() {
     fs.writeFileSync(path.join('./data/down.json'), JSON.stringify(downServerList))
 }
 
-function autoRestartSave () {
+function autoRestartSave() {
     saveStatus()
         .catch(e => {
             winston.error(e)
@@ -200,10 +206,10 @@ router
         ctx.body = file
     })
 
-    
+
 // 注册中间件
 app
-	.use(koa_cors())
+    .use(koa_cors())
     .use(router.routes())
     .use(router.allowedMethods())
     .use(koa_bodypaser())

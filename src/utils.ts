@@ -113,7 +113,7 @@ export interface downServer {
     statusMsg: networkError
 }
 
-export async function applyMinxin (children: Array<statusBody>, downServerList: downServerList) {
+export async function applyMinxin(children: Array<statusBody>, downServerList: downServerList) {
     // 首先初始化返回类
     const result: exportData = {
         version: '0.0.0',
@@ -193,7 +193,7 @@ export async function applyMinxin (children: Array<statusBody>, downServerList: 
         // 一言总数统计汇总
         result.status.hitokoto.total = result.status.hitokoto.total < child.server_status.hitokto.total ? child.server_status.hitokto.total : result.status.hitokoto.total
         result.status.hitokoto.categroy = result.status.hitokoto.categroy.length < child.server_status.hitokto.categroy.length ? child.server_status.hitokto.categroy : result.status.hitokoto.categroy
-        
+
         // 推送子状态
         const childStatus = {
             id: child.server_id
@@ -239,7 +239,7 @@ export async function applyMinxin (children: Array<statusBody>, downServerList: 
             }
         }
 
-        if (typeof child.requests.hosts['api.hitokoto.cn'] !== 'undefined'){
+        if (typeof child.requests.hosts['api.hitokoto.cn'] !== 'undefined') {
             result.requests.hosts['api.hitokoto.cn'].total += child.requests.hosts['api.hitokoto.cn'].total
             result.requests.hosts['api.hitokoto.cn'].pastMinute += child.requests.hosts['api.hitokoto.cn'].pastMinute
             result.requests.hosts['api.hitokoto.cn'].pastHour += child.requests.hosts['api.hitokoto.cn'].pastHour
@@ -255,7 +255,7 @@ export async function applyMinxin (children: Array<statusBody>, downServerList: 
             }
         }
 
-        if (typeof child.requests.hosts['sslapi.hitokoto.cn'] !== 'undefined'){
+        if (typeof child.requests.hosts['sslapi.hitokoto.cn'] !== 'undefined') {
             result.requests.hosts['sslapi.hitokoto.cn'].total += child.requests.hosts['sslapi.hitokoto.cn'].total
             result.requests.hosts['sslapi.hitokoto.cn'].pastMinute += child.requests.hosts['sslapi.hitokoto.cn'].pastMinute
             result.requests.hosts['sslapi.hitokoto.cn'].pastHour += child.requests.hosts['sslapi.hitokoto.cn'].pastHour
@@ -269,7 +269,7 @@ export async function applyMinxin (children: Array<statusBody>, downServerList: 
                     sslapiDayMapBuffer[index] += child.requests.hosts['sslapi.hitokoto.cn'].dayMap[index]
                 }
             }
-        }   
+        }
     }
 
     // 计算 load 平均值
@@ -285,16 +285,18 @@ export async function applyMinxin (children: Array<statusBody>, downServerList: 
     result.requests.hosts['sslapi.hitokoto.cn'].dayMap = sslapiDayMapBuffer
 
     // 合并 宕机服务
-    for (let child of downServerList.data) {
-        result.children.push(child.id)
-        result.downServer.push({
-            id: child.id,
-            startTs: child.start,
-            last: Date.now() - child.start,
-            statusMessage: child.statusMsg
-        })
+    if (downServerList.data.length > 0) {
+        for (let child of downServerList.data) {
+            result.children.push(child.id)
+            result.downServer.push({
+                id: child.id,
+                startTs: child.start,
+                last: Date.now() - child.start,
+                statusMessage: child.statusMsg
+            })
+        }
     }
-    
+
     // 写入值
     const ts = Date.now()
     const date = new Date(ts)
