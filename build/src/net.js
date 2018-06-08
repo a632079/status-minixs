@@ -27,8 +27,8 @@ class Net {
         const baseHeader = {
             'User-Agent': `Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0`,
             'Referer': '',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            // 'X-Requested-With': 'fetch'
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'X-Requested-With': 'Hitokoto Status Minixs Bot'
         };
         if (headers) {
             Object.assign(baseHeader, headers);
@@ -51,6 +51,9 @@ class Net {
     static getJSON(uri, method = 'GET', qs, data, headers) {
         return __awaiter(this, void 0, void 0, function* () {
             const responseBody = yield this.request(uri, method);
+            if (responseBody.status !== 200) {
+                return responseBody;
+            }
             return JSON.parse(responseBody.data.toString());
         });
     }

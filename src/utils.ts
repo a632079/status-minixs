@@ -63,10 +63,17 @@ export interface hostChild {
     pastDay: number,
     dayMap: Array<number>
 }
+export interface downServerData {
+    id: string,
+    startTs: number,
+    last: number,
+    statusMessage: networkError
+}
 
 export interface exportData {
     version: string, // Hitokoto Version
-    children: Array<string>
+    children: Array<string>,
+    downServer: Array<downServerData>,
     status: {
         load: Array<number>,
         memory: number,
@@ -86,11 +93,32 @@ export interface exportData {
     ts: number,
 }
 
-export async function applyMinxin (children: Array<statusBody>) {
+export interface networkError {
+    isError: boolean // is Error
+    id: string, // Server_id
+    code: number // StatusCode
+    msg: string // error msg
+    stack: string // error stack
+    ts: number // current timestamp
+}
+
+export interface downServerList {
+    ids: Array<string>,
+    data: Array<downServer>
+}
+
+export interface downServer {
+    id: string,
+    start: number,
+    statusMsg: networkError
+}
+
+export async function applyMinxin (children: Array<statusBody>, downServerList: downServerList) {
     // 首先初始化返回类
     const result: exportData = {
         version: '0.0.0',
         children: [],
+        downServer: [],
         status: {
             load: [0, 0, 0],
             memory: 0,
@@ -256,6 +284,17 @@ export async function applyMinxin (children: Array<statusBody>) {
     result.requests.hosts['api.hitokoto.cn'].dayMap = apiDayMapBuffer
     result.requests.hosts['sslapi.hitokoto.cn'].dayMap = sslapiDayMapBuffer
 
+    // 合并 宕机服务
+    for (let child of downServerList.data) {
+        result.children.push(child.id)
+        result.downServer.push({
+            id: child.id,
+            startTs: child.start,
+            last: Date.now() - child.start,
+            statusMessage: child.statusMsg
+        })
+    }
+    
     // 写入值
     const ts = Date.now()
     const date = new Date(ts)

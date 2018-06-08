@@ -18,5 +18,5 @@ export default class Net implements Net {
      */
     static request(uri: string, method: string, qs?: object, data?: object, headers?: object): Promise<AxiosResponse>;
     static getStatusCode(uri: string, method?: string): Promise<number>;
-    static getJSON(uri: string, method?: string, qs?: object, data?: object, headers?: object): Promise<statusBody>;
+    static getJSON(uri: string, method?: string, qs?: object, data?: object, headers?: object): Promise<AxiosResponse | statusBody>;
 }

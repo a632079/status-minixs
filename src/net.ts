@@ -23,8 +23,8 @@ export default class Net implements Net {
         const baseHeader = {
             'User-Agent': `Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0`,
             'Referer': '',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            // 'X-Requested-With': 'fetch'
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'X-Requested-With': 'Hitokoto Status Minixs Bot'
         }
         if (headers) {
             Object.assign(baseHeader, headers)
@@ -43,8 +43,11 @@ export default class Net implements Net {
         return responseBody.status
     }
 
-    static async getJSON(uri: string, method: string = 'GET', qs?: object, data?: object, headers?: object): Promise<statusBody> {
+    static async getJSON(uri: string, method: string = 'GET', qs?: object, data?: object, headers?: object): Promise<AxiosResponse | statusBody> {
         const responseBody = await this.request(uri, method)
+        if (responseBody.status !== 200) {
+            return responseBody
+        }
         return JSON.parse(responseBody.data.toString())
     }
 }

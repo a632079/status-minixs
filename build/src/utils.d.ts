@@ -54,9 +54,16 @@ export interface hostChild {
     pastDay: number;
     dayMap: Array<number>;
 }
+export interface downServerData {
+    id: string;
+    startTs: number;
+    last: number;
+    statusMessage: networkError;
+}
 export interface exportData {
     version: string;
     children: Array<string>;
+    downServer: Array<downServerData>;
     status: {
         load: Array<number>;
         memory: number;
@@ -75,4 +82,21 @@ export interface exportData {
     now: string;
     ts: number;
 }
-export declare function applyMinxin(children: Array<statusBody>): Promise<exportData>;
+export interface networkError {
+    isError: boolean;
+    id: string;
+    code: number;
+    msg: string;
+    stack: string;
+    ts: number;
+}
+export interface downServerList {
+    ids: Array<string>;
+    data: Array<downServer>;
+}
+export interface downServer {
+    id: string;
+    start: number;
+    statusMsg: networkError;
+}
+export declare function applyMinxin(children: Array<statusBody>, downServerList: downServerList): Promise<exportData>;

@@ -16,6 +16,7 @@ const nconf_1 = __importDefault(require("nconf"));
 const winston_1 = __importDefault(require("winston"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const lodash_1 = __importDefault(require("lodash"));
 // 使用蓝鸟加速
 const bluebird_1 = __importDefault(require("bluebird"));
 global.Promise = bluebird_1.default;
@@ -50,17 +51,55 @@ function fetchServerList() {
 // 获取数据
 function fetch(list) {
     return __awaiter(this, void 0, void 0, function* () {
+        function fetchChild(input) {
+            return __awaiter(this, void 0, void 0, function* () {
+                try {
+                    const responseBody = yield net_1.default.getJSON(input.url + '/status');
+                    if (responseBody) {
+                        const errorMsg = {
+                            isError: true,
+                            id: input.id,
+                            code: responseBody.status,
+                            msg: responseBody.statusText,
+                            stack: new Error().stack || '',
+                            ts: Date.now()
+                        };
+                        return errorMsg;
+                    }
+                    else {
+                        return responseBody;
+                    }
+                }
+                catch (err) {
+                    // 网络错误 或者其他错误
+                    const errorMsg = {
+                        isError: true,
+                        id: input.id,
+                        code: -1,
+                        msg: err.message,
+                        stack: err.stack,
+                        ts: Date.now()
+                    };
+                    return errorMsg;
+                }
+            });
+        }
         const events = [];
         for (let value of list) {
-            events.push(net_1.default.getJSON(value + '/status'));
+            // 进行纯异步请求
+            events.push(fetchChild(value));
         }
-        return Promise.all(events);
+        return Promise.all(events); // 并发一波请求
     });
 }
 const utils_1 = require("./src/utils");
 let childList = {
     lastUpdate: 0,
     list: []
+};
+let downServerList = JSON.parse(fs_1.default.readFileSync('./data/status.json').toString()) || {
+    ids: [],
+    data: []
 };
 function saveStatus() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -77,12 +116,59 @@ function saveStatus() {
         }
         const list = childList.list;
         winston_1.default.info('开始获取子节点数据...');
-        const children = yield fetch(list);
+        const fetchResult = yield fetch(list);
+        const children = [];
+        const downServer = [];
+        for (let child of fetchResult) {
+            if (child) {
+                downServer.push(child);
+            }
+            else {
+                children.push(child);
+            }
+        }
+        // 迭代添加宕机时间
+        let toRemoveIds = [];
+        for (let child of downServer) {
+            toRemoveIds.push(child.id);
+            // 检测是否在目前的数据已经存在于宕机数组
+            if (lodash_1.default.indexOf(downServerList.ids, child.id)) {
+                // 已经存在于宕机数组
+                // 更新一下里面的部分信息
+                for (let solo of downServerList.data) {
+                    if (solo.id === child.id) {
+                        solo.statusMsg = child;
+                    }
+                }
+            }
+            else {
+                // 并不存在， 我们添加进去
+                downServerList.ids.push(child.id);
+                downServerList.data.push({
+                    id: child.id,
+                    start: Date.now(),
+                    statusMsg: child
+                });
+            }
+        }
+        // 移除已经失效的宕机数据
+        toRemoveIds = lodash_1.default.pullAll(lodash_1.default.pullAll(downServerList.ids, toRemoveIds));
+        let toRemoveData = [];
+        for (let child of downServerList.data) {
+            for (let id in toRemoveIds) {
+                if (id === child.id) {
+                    toRemoveData.push(child);
+                }
+            }
+        }
+        lodash_1.default.pullAll(downServerList.ids, toRemoveIds);
+        lodash_1.default.pullAll(downServerList.data, toRemoveData);
         winston_1.default.info('执行数据合并...');
-        const data = yield utils_1.applyMinxin(children);
+        const data = yield utils_1.applyMinxin(children, downServerList);
         fs_1.default.existsSync(path_1.default.join('./data')) || fs_1.default.mkdirSync(path_1.default.join('./data'));
         winston_1.default.info('写入状态数据...');
         fs_1.default.writeFileSync(path_1.default.join('./data/status.json'), JSON.stringify(data));
+        fs_1.default.writeFileSync(path_1.default.join('./data/down.json'), JSON.stringify(downServerList));
     });
 }
 function autoRestartSave() {

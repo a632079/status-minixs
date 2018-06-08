@@ -12,12 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const semver_compare_1 = __importDefault(require("semver-compare"));
-function applyMinxin(children) {
+function applyMinxin(children, downServerList) {
     return __awaiter(this, void 0, void 0, function* () {
         // 首先初始化返回类
         const result = {
             version: '0.0.0',
             children: [],
+            downServer: [],
             status: {
                 load: [0, 0, 0],
                 memory: 0,
@@ -174,6 +175,16 @@ function applyMinxin(children) {
         result.requests.hosts['v1.hitokoto.cn'].dayMap = v1DayMapBuffer;
         result.requests.hosts['api.hitokoto.cn'].dayMap = apiDayMapBuffer;
         result.requests.hosts['sslapi.hitokoto.cn'].dayMap = sslapiDayMapBuffer;
+        // 合并 宕机服务
+        for (let child of downServerList.data) {
+            result.children.push(child.id);
+            result.downServer.push({
+                id: child.id,
+                startTs: child.start,
+                last: Date.now() - child.start,
+                statusMessage: child.statusMsg
+            });
+        }
         // 写入值
         const ts = Date.now();
         const date = new Date(ts);
