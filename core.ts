@@ -42,7 +42,7 @@ async function fetchServerList() {
 // 获取数据
 async function fetch(list: Array<any>): Promise<Array<statusBody | networkError>> {
     async function fetchChild(input: any) {
-        console.log(input)
+        // console.log(input)
         try {
             const responseBody = await net.getJSON(input.url + '/status')
             if ((<AxiosResponse>responseBody).status) {
@@ -50,8 +50,8 @@ async function fetch(list: Array<any>): Promise<Array<statusBody | networkError>
                     isError: true,
                     id: input.id,
                     code: (<AxiosResponse>responseBody).status,
-                    msg: (<AxiosResponse>responseBody).statusText,
-                    stack: new Error().stack || '',
+                    msg: (<AxiosResponse>responseBody).statusText.replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
+                    stack: (new Error().stack || '').replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
                     ts: Date.now()
                 }
                 return errorMsg
@@ -64,8 +64,8 @@ async function fetch(list: Array<any>): Promise<Array<statusBody | networkError>
                 isError: true,
                 id: input.id,
                 code: -1, // 非网络错误
-                msg: err.message,
-                stack: err.stack,
+                msg: err.message.replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
+                stack: (err.stack || '').replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
                 ts: Date.now()
             }
             return errorMsg
@@ -108,18 +108,19 @@ async function saveStatus() {
     const downServer: Array<networkError> = []
     for (let child of fetchResult) {
         if ((<networkError>child).isError) {
+            // console.log(child)
             downServer.push(<networkError>child)
         } else {
             children.push((child as statusBody))
         }
     }
     // 迭代添加宕机时间
-    let toRemoveIds = []
+    let toSaveIds = []
     if (downServer.length > 0) {
         for (let child of downServer) {
-            toRemoveIds.push(child.id)
+            toSaveIds.push(child.id)
             // 检测是否在目前的数据已经存在于宕机数组
-            if (_.indexOf(downServerList.ids, child.id)) {
+            if (_.indexOf(downServerList.ids, child.id) !== -1) {
                 // 已经存在于宕机数组
                 // 更新一下里面的部分信息
                 for (let solo of downServerList.data) {
@@ -138,24 +139,32 @@ async function saveStatus() {
             }
         }
     }
-
     // 移除已经失效的宕机数据
+    // console.log(downServerList.ids)
     if (downServerList.data.length > 0) {
-        toRemoveIds = _.pullAll(_.pullAll(downServerList.ids, toRemoveIds))
-        let toRemoveData = []
-        for (let child of downServerList.data) {
-            for (let id in toRemoveIds) {
-                if (id === child.id) {
-                    toRemoveData.push(child)
+       // console.log(downServerList.ids)
+        const toRemoveIds = _.difference(downServerList.ids, toSaveIds)
+        for (let index in downServerList.data) {
+            for (let id of toRemoveIds) {
+                if (id === downServerList.data[index].id) {
+                    delete downServerList.data[index]
                 }
             }
         }
+        const bufferData = []
+        for (let data of downServerList.data) {
+            if (data !== undefined) {
+                bufferData.push(data)
+            }
+        }
         _.pullAll(downServerList.ids, toRemoveIds)
-        _.pullAll(downServerList.data, toRemoveData)
+        downServerList.data = bufferData
     }
 
     winston.info('执行数据合并...')
-    console.log(children)
+    // console.log(children)
+    // console.log(downServer)
+    // console.log(downServerList)
     const data = await applyMinxin(children, downServerList)
     fs.existsSync(path.join('./data')) || fs.mkdirSync(path.join('./data'))
     winston.info('写入状态数据...')
@@ -173,7 +182,7 @@ function autoRestartSave() {
 }
 
 const job = new CronJob(
-    '*/10 * * * * *',
+    '*/8 * * * * *',
     () => {
         autoRestartSave()
     },

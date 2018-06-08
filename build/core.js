@@ -41,7 +41,7 @@ async function fetchServerList() {
 // 获取数据
 async function fetch(list) {
     async function fetchChild(input) {
-        console.log(input);
+        // console.log(input)
         try {
             const responseBody = await net_1.default.getJSON(input.url + '/status');
             if (responseBody.status) {
@@ -49,8 +49,8 @@ async function fetch(list) {
                     isError: true,
                     id: input.id,
                     code: responseBody.status,
-                    msg: responseBody.statusText,
-                    stack: new Error().stack || '',
+                    msg: responseBody.statusText.replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
+                    stack: (new Error().stack || '').replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
                     ts: Date.now()
                 };
                 return errorMsg;
@@ -65,8 +65,8 @@ async function fetch(list) {
                 isError: true,
                 id: input.id,
                 code: -1,
-                msg: err.message,
-                stack: err.stack,
+                msg: err.message.replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
+                stack: (err.stack || '').replace(/(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):[a-zA-Z0-9]+\d/g, 'Hidden IPAddress'),
                 ts: Date.now()
             };
             return errorMsg;
@@ -107,6 +107,7 @@ async function saveStatus() {
     const downServer = [];
     for (let child of fetchResult) {
         if (child.isError) {
+            // console.log(child)
             downServer.push(child);
         }
         else {
@@ -114,12 +115,12 @@ async function saveStatus() {
         }
     }
     // 迭代添加宕机时间
-    let toRemoveIds = [];
+    let toSaveIds = [];
     if (downServer.length > 0) {
         for (let child of downServer) {
-            toRemoveIds.push(child.id);
+            toSaveIds.push(child.id);
             // 检测是否在目前的数据已经存在于宕机数组
-            if (lodash_1.default.indexOf(downServerList.ids, child.id)) {
+            if (lodash_1.default.indexOf(downServerList.ids, child.id) !== -1) {
                 // 已经存在于宕机数组
                 // 更新一下里面的部分信息
                 for (let solo of downServerList.data) {
@@ -140,21 +141,30 @@ async function saveStatus() {
         }
     }
     // 移除已经失效的宕机数据
+    // console.log(downServerList.ids)
     if (downServerList.data.length > 0) {
-        toRemoveIds = lodash_1.default.pullAll(lodash_1.default.pullAll(downServerList.ids, toRemoveIds));
-        let toRemoveData = [];
-        for (let child of downServerList.data) {
-            for (let id in toRemoveIds) {
-                if (id === child.id) {
-                    toRemoveData.push(child);
+        // console.log(downServerList.ids)
+        const toRemoveIds = lodash_1.default.difference(downServerList.ids, toSaveIds);
+        for (let index in downServerList.data) {
+            for (let id of toRemoveIds) {
+                if (id === downServerList.data[index].id) {
+                    delete downServerList.data[index];
                 }
             }
         }
+        const bufferData = [];
+        for (let data of downServerList.data) {
+            if (data !== undefined) {
+                bufferData.push(data);
+            }
+        }
         lodash_1.default.pullAll(downServerList.ids, toRemoveIds);
-        lodash_1.default.pullAll(downServerList.data, toRemoveData);
+        downServerList.data = bufferData;
     }
     winston_1.default.info('执行数据合并...');
-    console.log(children);
+    // console.log(children)
+    // console.log(downServer)
+    // console.log(downServerList)
     const data = await utils_1.applyMinxin(children, downServerList);
     fs_1.default.existsSync(path_1.default.join('./data')) || fs_1.default.mkdirSync(path_1.default.join('./data'));
     winston_1.default.info('写入状态数据...');
@@ -169,7 +179,7 @@ function autoRestartSave() {
         autoRestartSave();
     });
 }
-const job = new cron_1.CronJob('*/10 * * * * *', () => {
+const job = new cron_1.CronJob('*/8 * * * * *', () => {
     autoRestartSave();
 }, () => {
     job.start();
